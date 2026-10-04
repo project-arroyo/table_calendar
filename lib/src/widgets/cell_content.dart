@@ -6,6 +6,32 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/src/customization/calendar_builders.dart';
 import 'package:table_calendar/src/customization/calendar_style.dart';
 
+// Bound shared caches so scrolling across large date ranges cannot grow memory
+// indefinitely. Locale is resolved on each call, including default-locale changes.
+final _semanticFormatters = <String, (DateFormat, DateFormat)>{};
+final _semanticLabels = <(String, int, int, int), String>{};
+
+String _semanticLabel(DateTime day, String? locale) {
+  final resolved = Intl.canonicalizedLocale(locale ?? Intl.getCurrentLocale());
+  final key = (resolved, day.year, day.month, day.day);
+  final cached = _semanticLabels[key];
+  if (cached != null) return cached;
+  var formats = _semanticFormatters[resolved];
+  if (formats == null) {
+    if (_semanticFormatters.length >= 8) {
+      _semanticFormatters.remove(_semanticFormatters.keys.first);
+    }
+    formats = (DateFormat.EEEE(resolved), DateFormat.yMMMMd(resolved));
+    _semanticFormatters[resolved] = formats;
+  }
+  final label = '${formats.$1.format(day)}, ${formats.$2.format(day)}';
+  if (_semanticLabels.length >= 512) {
+    _semanticLabels.remove(_semanticLabels.keys.first);
+  }
+  _semanticLabels[key] = label;
+  return label;
+}
+
 class CellContent extends StatelessWidget {
   final DateTime day;
   final DateTime focusedDay;
@@ -44,12 +70,13 @@ class CellContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dowLabel = DateFormat.EEEE(locale).format(day);
-    final dayLabel = DateFormat.yMMMMd(locale).format(day);
-    final semanticsLabel = '$dowLabel, $dayLabel';
+    final semanticsLabel = _semanticLabel(day, locale as String?);
 
-    Widget? cell =
-        calendarBuilders.prioritizedBuilder?.call(context, day, focusedDay);
+    Widget? cell = calendarBuilders.prioritizedBuilder?.call(
+      context,
+      day,
+      focusedDay,
+    );
 
     if (cell != null) {
       return Semantics(
@@ -67,7 +94,8 @@ class CellContent extends StatelessWidget {
     const duration = Duration(milliseconds: 250);
 
     if (isDisabled) {
-      cell = calendarBuilders.disabledBuilder?.call(context, day, focusedDay) ??
+      cell =
+          calendarBuilders.disabledBuilder?.call(context, day, focusedDay) ??
           AnimatedContainer(
             duration: duration,
             margin: margin,
@@ -77,7 +105,8 @@ class CellContent extends StatelessWidget {
             child: Text(text, style: calendarStyle.disabledTextStyle),
           );
     } else if (isSelected) {
-      cell = calendarBuilders.selectedBuilder?.call(context, day, focusedDay) ??
+      cell =
+          calendarBuilders.selectedBuilder?.call(context, day, focusedDay) ??
           AnimatedContainer(
             duration: duration,
             margin: margin,
@@ -89,16 +118,17 @@ class CellContent extends StatelessWidget {
     } else if (isRangeStart) {
       cell =
           calendarBuilders.rangeStartBuilder?.call(context, day, focusedDay) ??
-              AnimatedContainer(
-                duration: duration,
-                margin: margin,
-                padding: padding,
-                decoration: calendarStyle.rangeStartDecoration,
-                alignment: alignment,
-                child: Text(text, style: calendarStyle.rangeStartTextStyle),
-              );
+          AnimatedContainer(
+            duration: duration,
+            margin: margin,
+            padding: padding,
+            decoration: calendarStyle.rangeStartDecoration,
+            alignment: alignment,
+            child: Text(text, style: calendarStyle.rangeStartTextStyle),
+          );
     } else if (isRangeEnd) {
-      cell = calendarBuilders.rangeEndBuilder?.call(context, day, focusedDay) ??
+      cell =
+          calendarBuilders.rangeEndBuilder?.call(context, day, focusedDay) ??
           AnimatedContainer(
             duration: duration,
             margin: margin,
@@ -108,7 +138,8 @@ class CellContent extends StatelessWidget {
             child: Text(text, style: calendarStyle.rangeEndTextStyle),
           );
     } else if (isToday && isTodayHighlighted) {
-      cell = calendarBuilders.todayBuilder?.call(context, day, focusedDay) ??
+      cell =
+          calendarBuilders.todayBuilder?.call(context, day, focusedDay) ??
           AnimatedContainer(
             duration: duration,
             margin: margin,
@@ -118,7 +149,8 @@ class CellContent extends StatelessWidget {
             child: Text(text, style: calendarStyle.todayTextStyle),
           );
     } else if (isHoliday) {
-      cell = calendarBuilders.holidayBuilder?.call(context, day, focusedDay) ??
+      cell =
+          calendarBuilders.holidayBuilder?.call(context, day, focusedDay) ??
           AnimatedContainer(
             duration: duration,
             margin: margin,
@@ -130,16 +162,17 @@ class CellContent extends StatelessWidget {
     } else if (isWithinRange) {
       cell =
           calendarBuilders.withinRangeBuilder?.call(context, day, focusedDay) ??
-              AnimatedContainer(
-                duration: duration,
-                margin: margin,
-                padding: padding,
-                decoration: calendarStyle.withinRangeDecoration,
-                alignment: alignment,
-                child: Text(text, style: calendarStyle.withinRangeTextStyle),
-              );
+          AnimatedContainer(
+            duration: duration,
+            margin: margin,
+            padding: padding,
+            decoration: calendarStyle.withinRangeDecoration,
+            alignment: alignment,
+            child: Text(text, style: calendarStyle.withinRangeTextStyle),
+          );
     } else if (isOutside) {
-      cell = calendarBuilders.outsideBuilder?.call(context, day, focusedDay) ??
+      cell =
+          calendarBuilders.outsideBuilder?.call(context, day, focusedDay) ??
           AnimatedContainer(
             duration: duration,
             margin: margin,
@@ -149,7 +182,8 @@ class CellContent extends StatelessWidget {
             child: Text(text, style: calendarStyle.outsideTextStyle),
           );
     } else {
-      cell = calendarBuilders.defaultBuilder?.call(context, day, focusedDay) ??
+      cell =
+          calendarBuilders.defaultBuilder?.call(context, day, focusedDay) ??
           AnimatedContainer(
             duration: duration,
             margin: margin,

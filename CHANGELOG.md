@@ -1,3 +1,8 @@
+## Unreleased (project-arroyo fork)
+
+- Reuse bounded locale-aware caches for date-cell accessibility formatters and
+  labels, preserving semantics for custom builders and locale changes.
+
 ## [3.2.0]
 
 * Added loadEventsForDisabledDays property to enable loading events for disabled days as well

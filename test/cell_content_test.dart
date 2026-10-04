@@ -47,6 +47,37 @@ Widget setupTestWidget(
 }
 
 void main() {
+  testWidgets('cached semantics follows explicit and default locale changes', (
+    tester,
+  ) async {
+    await initializeDateFormatting('ko');
+    await initializeDateFormatting('en_US');
+    final original = Intl.defaultLocale;
+    addTearDown(() => Intl.defaultLocale = original);
+    final day = DateTime(2026, 5, 12);
+    for (final locale in ['ko', 'en_US', 'ko']) {
+      Intl.defaultLocale = locale;
+      for (final explicit in [locale, null]) {
+        await tester.pumpWidget(
+          setupTestWidget(
+            day,
+            locale: explicit,
+            calendarBuilders: CalendarBuilders(
+              prioritizedBuilder: (_, __, ___) => const Text('custom'),
+            ),
+          ),
+        );
+        final semantics = tester.widget<Semantics>(
+          find.byType(Semantics).first,
+        );
+        expect(
+          semantics.properties.label,
+          '${DateFormat.EEEE(locale).format(day)}, ${DateFormat.yMMMMd(locale).format(day)}',
+        );
+      }
+    }
+  });
+
   group('CalendarBuilders flag test:', () {
     testWidgets('selectedBuilder', (tester) async {
       DateTime? builderDay;
@@ -232,10 +263,7 @@ void main() {
         expect(builderDay, isNull);
 
         await tester.pumpWidget(
-          setupTestWidget(
-            cellDay,
-            calendarBuilders: calendarBuilders,
-          ),
+          setupTestWidget(cellDay, calendarBuilders: calendarBuilders),
         );
 
         expect(builderDay, cellDay);
@@ -278,40 +306,39 @@ void main() {
       },
     );
 
-    testWidgets(
-      'prioritizedBuilder has the highest build order priority',
-      (tester) async {
-        DateTime? builderDay;
-        String builderName = '';
+    testWidgets('prioritizedBuilder has the highest build order priority', (
+      tester,
+    ) async {
+      DateTime? builderDay;
+      String builderName = '';
 
-        final calendarBuilders = CalendarBuilders(
-          prioritizedBuilder: (context, day, focusedDay) {
-            builderName = 'prioritizedBuilder';
-            builderDay = day;
-            return Text('${day.day}');
-          },
-          disabledBuilder: (context, day, focusedDay) {
-            builderName = 'disabledBuilder';
-            builderDay = day;
-            return Text('${day.day}');
-          },
-        );
+      final calendarBuilders = CalendarBuilders(
+        prioritizedBuilder: (context, day, focusedDay) {
+          builderName = 'prioritizedBuilder';
+          builderDay = day;
+          return Text('${day.day}');
+        },
+        disabledBuilder: (context, day, focusedDay) {
+          builderName = 'disabledBuilder';
+          builderDay = day;
+          return Text('${day.day}');
+        },
+      );
 
-        final cellDay = DateTime.utc(2021, 7, 15);
-        expect(builderDay, isNull);
+      final cellDay = DateTime.utc(2021, 7, 15);
+      expect(builderDay, isNull);
 
-        await tester.pumpWidget(
-          setupTestWidget(
-            cellDay,
-            calendarBuilders: calendarBuilders,
-            isDisabled: true,
-          ),
-        );
+      await tester.pumpWidget(
+        setupTestWidget(
+          cellDay,
+          calendarBuilders: calendarBuilders,
+          isDisabled: true,
+        ),
+      );
 
-        expect(builderDay, cellDay);
-        expect(builderName, 'prioritizedBuilder');
-      },
-    );
+      expect(builderDay, cellDay);
+      expect(builderName, 'prioritizedBuilder');
+    });
   });
 
   group('CalendarBuilders Locale test:', () {
@@ -320,12 +347,7 @@ void main() {
       initializeDateFormatting(locale);
 
       final cellDay = DateTime.utc(2021, 7, 15);
-      await tester.pumpWidget(
-        setupTestWidget(
-          cellDay,
-          locale: locale,
-        ),
-      );
+      await tester.pumpWidget(setupTestWidget(cellDay, locale: locale));
 
       final dayFinder = find.text('${cellDay.day}');
       expect(dayFinder, findsOneWidget);
@@ -356,12 +378,7 @@ void main() {
       initializeDateFormatting(locale);
 
       final cellDay = DateTime.utc(2021, 7, 15);
-      await tester.pumpWidget(
-        setupTestWidget(
-          cellDay,
-          locale: locale,
-        ),
-      );
+      await tester.pumpWidget(setupTestWidget(cellDay, locale: locale));
 
       final dayFinder = find.text('${cellDay.day}');
       expect(dayFinder, findsOneWidget);
